@@ -5,13 +5,13 @@
 set -o errexit -o nounset
 server="$1"
 
-#Stops and removes the docker container named "server", reporting this with the arguments.
+#Stops and removes the docker container named "server", reporting this with $serverKind.
 cleanServer () {
-  echo INT, TERM, or EXIT trapped with status $?
-  echo Stopping server "$@" ...
+  echo Status $? before cleaning server
+  echo Stopping server $serverKind ...
   docker stop server
 
-  echo Removing server "$@" ...
+  echo Removing server $serverKind ...
   docker rm server
 }
 
@@ -27,13 +27,16 @@ waitIfTrellis () {
 }
 
 #Install clean up action:
-trap "cleanServer on exit; exit" INT TERM EXIT
+serverKind="on unexpected exit"
+trap "cleanServer; exit" INT TERM EXIT
 
 echo Testing $server ...
 echo Building image ...
 docker build -t $server servers/$server
 
-echo Starting server without WAC ...
+
+serverKind="without WAC"
+echo Starting server $serverKind ...
 docker run -d --name=server --env SKIP_WAC=true --network=testnet $server
 
 waitIfTrellis
@@ -41,9 +44,10 @@ waitIfTrellis
 echo Running ldp-basic tester ...
 docker run --network=testnet ldp-basic > reports/$server-ldp-basic.txt || echo ... Errors in ldp-basic tester
 
-cleanServer without WAC
+cleanServer
 
-echo Starting server with WAC ...
+serverKind="with WAC"
+echo Starting server $serverKind ...
 docker run -d --name=server --network=testnet $server
 
 waitIfTrellis
@@ -54,5 +58,5 @@ docker run --network=testnet websockets-pubsub 2> reports/$server-websockets-pub
 echo Running rdf-fixtures tester ...
 docker run --network=testnet rdf-fixtures > reports/$server-rdf-fixtures.txt || echo ... Errors in rdf-fixtures tester
 
-cleanServer with WAC
+#cleanServer here automatically called by upper trap
 
